@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Generala Vibe Pink</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        /* PALETA LILA / ROSADO */
+        :root { 
+            --primary: #d946ef; /* Fucsia/Lila vibrante */
+            --primary-dark: #a21caf; 
+            --primary-light: #f0abfc; 
+            --bg: #fdf4ff; /* Fondo rosado muy pálido */
+            --surface: #ffffff;
+            --text: #701a75; /* Texto uva oscuro */
+            --highlight: #fae8ff; 
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box; touch-action: manipulation; }
+        
+        header { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        h1 { font-size: 1.6rem; color: var(--primary); margin: 0; font-weight: 800; letter-spacing: -1px; }
+        .restart-btn { background: white; border: 1px solid var(--primary-light); color: var(--primary); padding: 6px 12px; border-radius: 12px; font-size: 0.8rem; cursor: pointer; }
+
+        /* Setup */
+        #setup-screen { text-align: center; max-width: 300px; width: 100%; margin-top: 50px; }
+        input { padding: 12px; border-radius: 15px; border: 2px solid var(--primary-light); width: 80%; margin: 15px 0; font-size: 1.1rem; text-align: center; outline: none; color: var(--text); background: white; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.2); }
+
+        /* Game Area */
+        #game-screen { display: none; width: 100%; max-width: 600px; flex-direction: column; align-items: center; position: relative; }
+
+        /* Turn Banner */
+        .turn-banner { 
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
+            color: white; padding: 8px 25px; border-radius: 30px; 
+            margin-bottom: 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(217, 70, 239, 0.3);
+            font-size: 1.1rem; letter-spacing: 0.5px;
+        }
+
+        /* CARTEL SERVIDA (Overlay) */
+        #servida-overlay {
+            position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            background: rgba(255, 255, 255, 0.95); border: 3px solid var(--primary);
+            padding: 20px 40px; border-radius: 20px; z-index: 100;
+            text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            pointer-events: none; opacity: 0; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #servida-overlay.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        #servida-overlay h2 { margin: 0; font-size: 2rem; color: var(--primary); text-transform: uppercase; }
+        #servida-overlay p { margin: 5px 0 0 0; font-size: 1.2rem; color: var(--text); font-weight: bold; }
+
+        /* DADOS */
+        .dice-container { display: flex; gap: 10px; margin: 10px 0 20px 0; justify-content: center; }
+        .die { 
+            width: 52px; height: 52px; background: white; border-radius: 12px; 
+            box-shadow: 0 6px 0 #e5e7eb, 0 10px 10px rgba(0,0,0,0.1); 
+            cursor: pointer; position: relative; transition: transform 0.1s;
+            display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 4px; box-sizing: border-box; border: 1px solid #f3f4f6;
+        }
+        .die:active { transform: translateY(4px); box-shadow: 0 2px 0 #e5e7eb; }
+        .die.held { transform: translateY(-10px); box-shadow: 0 14px 20px rgba(217, 70, 239, 0.25), inset 0 0 0 2px var(--primary); border-color: var(--primary); }
+        .dot { background-color: var(--primary); border-radius: 50%; width: 10px; height: 10px; margin: auto; }
+        
+        .die.rolling { animation: shake 0.4s infinite; }
+        @keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(5deg); } 75% { transform: rotate(-5deg); } 100% { transform: rotate(0deg); } }
+
+        /* Grid Dots */
+        .d-1 .dot:nth-child(1) { grid-area: 2 / 2; }
+        .d-2 .dot:nth-child(1) { grid-area: 1 / 1; } .d-2 .dot:nth-child(2) { grid-area: 3 / 3; }
+        .d-3 .dot:nth-child(1) { grid-area: 1 / 1; } .d-3 .dot:nth-child(2) { grid-area: 2 / 2; } .d-3 .dot:nth-child(3) { grid-area: 3 / 3; }
+        .d-4 .dot:nth-child(1) { grid-area: 1 / 1; } .d-4 .dot:nth-child(2) { grid-area: 1 / 3; } .d-4 .dot:nth-child(3) { grid-area: 3 / 1; } .d-4 .dot:nth-child(4) { grid-area: 3 / 3; }
+        .d-5 .dot:nth-child(1) { grid-area: 1 / 1; } .d-5 .dot:nth-child(2) { grid-area: 1 / 3; } .d-5 .dot:nth-child(3) { grid-area: 2 / 2; } .d-5 .dot:nth-child(4) { grid-area: 3 / 1; } .d-5 .dot:nth-child(5) { grid-area: 3 / 3; }
+        .d-6 .dot:nth-child(1) { grid-area: 1 / 1; } .d-6 .dot:nth-child(2) { grid-area: 1 / 3; } .d-6 .dot:nth-child(3) { grid-area: 2 / 1; } .d-6 .dot:nth-child(4) { grid-area: 2 / 3; } .d-6 .dot:nth-child(5) { grid-area: 3 / 1; } .d-6 .dot:nth-child(6) { grid-area: 3 / 3; }
+
+        /* Buttons */
+        .main-btn { background: var(--primary); color: white; border: none; padding: 12px 35px; border-radius: 25px; font-size: 1.1rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(217, 70, 239, 0.4); margin-bottom: 5px; letter-spacing: 0.5px; }
+        .main-btn:disabled { background: #e9d5ff; color: #fff; box-shadow: none; cursor: default; }
+        .helper-text { font-size: 0.85rem; color: var(--primary-dark); margin-bottom: 15px; min-height: 1.2em; font-weight: 500;}
+
+        /* Table */
+        .table-container { 
+            width: 100%; overflow-x: auto; 
+            background: white; border-radius: 15px; box-shadow: 0 4px 20px rgba(217, 70, 239, 0.08);
+            padding-bottom: 5px; margin-bottom: 40px;
+        }
+        
+        table { width: 100%; border-collapse: collapse; min-width: 320px; }
+        
+        th { background: var(--primary); color: white; padding: 12px 8px; font-size: 0.9rem; position: sticky; top: 0; }
+        th:first-child { border-top-left-radius: 10px; z-index: 2; width: 90px; background: var(--primary-dark);}
+        th:last-child { border-top-right-radius: 10px; }
+        
+        td { padding: 8px 5px; text-align: center; border-bottom: 1px solid #fce7f3; font-size: 0.95rem; color: var(--text); }
+        td:first-child { font-weight: 700; text-align: left; padding-left: 15px; color: var(--primary-dark); background: #fdf2f8; border-right: 1px solid #fbcfe8; }
+
+        .col-active { background-color: var(--highlight); border-left: 2px solid var(--primary-light); border-right: 2px solid var(--primary-light); }
+        
+        /* Table Buttons */
+        .score-cell-btn { 
+            width: 100%; padding: 6px 0; border-radius: 8px; 
+            background: transparent; border: none; font-weight: bold; font-size: 1rem; color: var(--text);
+        }
+        .score-cell-btn.suggestion { 
+            background: #fff; border: 1px solid var(--primary); color: var(--primary); 
+            cursor: pointer; box-shadow: 0 2px 5px rgba(217, 70, 239, 0.15); font-size: 0.9rem;
+        }
+        .score-cell-btn.servida-badge {
+            background: var(--primary); color: white; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); animation: pulse 2s infinite;
+        }
+        .row-gd { color: #db2777; font-style: italic; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Generala 🌸</h1>
+        <button class="restart-btn" onclick="confirmRestart()">Reiniciar</button>
+    </header>
+
+    <div id="setup-screen">
+        <h2 style="color: var(--primary)">Nueva Partida</h2>
+        <div id="step-count">
+            <p style="color: var(--text)">¿Cuántos jugadores?</p>
+            <input type="number" id="num-players" min="1" max="10" value="2">
+            <br>
+            <button class="main-btn" onclick="setupNames()">Siguiente</button>
+        </div>
+        <div id="step-names" style="display:none;">
+            <p id="name-prompt" style="color: var(--text)">Jugador 1:</p>
+            <input type="text" id="player-name-input" placeholder="Nombre">
+            <br>
+            <button class="main-btn" onclick="addPlayerName()">Aceptar</button>
+        </div>
+    </div>
+
+    <div id="game-screen">
+        <div class="turn-banner" id="turn-banner">Turno de Ana</div>
+
+        <div id="servida-overlay">
+            <h2 id="servida-title">¡FULL!</h2>
+            <p>SERVIDO</p>
+        </div>
+
+        <div class="dice-container" id="dice-container"></div>
+
+        <button id="roll-btn" class="main-btn" onclick="rollDice()">Tirar (3)</button>
+        <div class="helper-text" id="helper-text">Toca los dados para guardarlos</div>
+
+        <div class="table-container">
+            <table id="score-table">
+                </table>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN DE REGLAS
+        const categories = [
+            { id: '1', label: '1' },
+            { id: '2', label: '2' },
+            { id: '3', label: '3' },
+            { id: '4', label: '4' },
+            { id: '5', label: '5' },
+            { id: '6', label: '6' },
+            { id: 'Escalera', label: 'Escalera' },
+            { id: 'Full', label: 'Full' },
+            { id: 'Póker', label: 'Póker' },
+            { id: 'Generala', label: 'Generala' },
+            { id: 'Doble', label: 'G. Doble' }
+        ];
+
+        let players = []; 
+        let currentPlayerIndex = 0;
+        let setupIndex = 0;
+        
+        let dice = [1, 1, 1, 1, 1];
+        let held = [false, false, false, false, false];
+        let rollsLeft = 3;
+        let turnOver = false;
+
+        // SETUP
+        function setupNames() {
+            const num = document.getElementById('num-players').value;
+            if(num < 1) return;
+            players = new Array(parseInt(num)).fill(null);
+            document.getElementById('step-count').style.display = 'none';
+            document.getElementById('step-names').style.display = 'block';
+            askName();
+        }
+
+        function askName() {
+            document.getElementById('name-prompt').innerText = `Nombre Jugador ${setupIndex + 1}:`;
+            const input = document.getElementById('player-name-input');
+            input.value = '';
+            input.focus();
+        }
+
+        function addPlayerName() {
+            const name = document.getElementById('player-name-input').value || `P${setupIndex + 1}`;
+            players[setupIndex] = { name: name, scores: {}, total: 0 };
+            categories.forEach(c => players[setupIndex].scores[c.id] = null);
+            setupIndex++;
+            if (setupIndex < players.length) askName();
+            else startGame();
+        }
+
+        function startGame() {
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'flex';
+            startTurn();
+        }
+
+        // TURNOS
+        function startTurn() {
+            rollsLeft = 3;
+            held = [false, false, false, false, false];
+            turnOver = false;
+            dice = [1, 2, 3, 4, 5]; 
+            updateUI();
+            renderTable();
+        }
+
+        function updateUI() {
+            const p = players[currentPlayerIndex];
+            document.getElementById('turn-banner').innerText = `Turno de ${p.name}`;
+            
+            const btn = document.getElementById('roll-btn');
+            const txt = document.getElementById('helper-text');
+            
+            renderDice();
+
+            if (rollsLeft === 3) {
+                btn.innerText = "Tirar (3)";
+                btn.disabled = false;
+                txt.innerText = "¡A rodar!";
+            } else if (rollsLeft > 0) {
+                btn.innerText = `Tirar (${rollsLeft})`;
+                btn.disabled = false;
+                txt.innerText = "Elige qué dados guardar";
+            } else {
+                btn.innerText = "Anota tu puntaje";
+                btn.disabled = true;
+                txt.innerText = "Selecciona una casilla en la tabla";
+            }
+        }
+
+        // DADOS
+        function renderDice() {
+            const container = document.getElementById('dice-container');
+            container.innerHTML = '';
+            dice.forEach((val, i) => {
+                const die = document.createElement('div');
+                die.className = `die d-${val} ${held[i] ? 'held' : ''}`;
+                for(let j=0; j<val; j++) die.appendChild(document.createElement('div')).className = 'dot';
+                die.onclick = () => { if(rollsLeft < 3 && !turnOver) { held[i] = !held[i]; renderDice(); }};
+                container.appendChild(die);
+            });
+        }
+
+        function rollDice() {
+            if (rollsLeft > 0 && !turnOver) {
+                const dies = document.querySelectorAll('.die');
+                dies.forEach(d => { if(!d.classList.contains('held')) d.classList.add('rolling'); });
+                
+                setTimeout(() => {
+                    dice = dice.map((val, i) => held[i] ? val : Math.floor(Math.random() * 6) + 1);
+                    rollsLeft--;
+                    updateUI();
+                    checkForServida(); // Chequear si hay servida visual
+                    renderTable(true); 
+                }, 400);
+            }
+        }
+
+        // DETECCIÓN SERVIDA VISUAL
+        function checkForServida() {
+            // Solo si es el primer tiro (quedan 2) y no se retuvo ningún dado (o se retuvieron todos que es raro en primer tiro)
+            // Lógica simple: Si rollsLeft == 2, es servida.
+            if (rollsLeft !== 2) return;
+
+            const counts = {};
+            dice.forEach(x => counts[x] = (counts[x] || 0) + 1);
+            const vals = Object.values(counts);
+            const sorted = [...dice].sort().join('');
+            const unique = new Set(dice).size;
+
+            let title = "";
+            
+            if (vals.includes(5)) title = "¡GENERALA!";
+            else if ((vals.includes(3) && vals.includes(2))) title = "¡FULL!";
+            else if (vals.some(v => v >= 4)) title = "¡PÓKER!";
+            else if (unique === 5 || sorted === '13456') title = "¡ESCALERA!";
+
+            if (title) showServidaOverlay(title);
+        }
+
+        function showServidaOverlay(title) {
+            const overlay = document.getElementById('servida-overlay');
+            document.getElementById('servida-title').innerText = title;
+            overlay.classList.add('show');
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#d946ef', '#f0abfc'] });
+            
+            setTimeout(() => {
+                overlay.classList.remove('show');
+            }, 2500);
+        }
+
+        // PUNTUACIÓN
+        function calculatePoints(catId) {
+            const counts = {};
+            dice.forEach(x => counts[x] = (counts[x] || 0) + 1);
+            const vals = Object.values(counts);
+            
+            // Numéricos
+            if (!isNaN(catId)) return (counts[catId] || 0) * parseInt(catId);
+
+            const sorted = [...dice].sort().join('');
+            const unique = new Set(dice).size;
+            
+            // Regla Servida: Si rollsLeft == 2 (primer tiro), da bono.
+            const isServida = (rollsLeft === 2);
+
+            if (catId === 'Escalera') {
+                if (unique === 5 || sorted === '13456') return isServida ? 25 : 20;
+                return 0;
+            }
+            if (catId === 'Full') {
+                if ((vals.includes(3) && vals.includes(2)) || vals.includes(5)) return isServida ? 35 : 30;
+                return 0;
+            }
+            if (catId === 'Póker') {
+                if (vals.some(v => v >= 4)) return isServida ? 45 : 40;
+                return 0;
+            }
+            if (catId === 'Generala') {
+                if (vals.includes(5)) return isServida ? 100 : 50; // 100 por servida
+                return 0;
+            }
+            if (catId === 'Doble') {
+                // Generala doble no suele aplicar "servida" extra, solo ser la segunda.
+                return vals.includes(5) ? 100 : 0; 
+            }
+
+            return 0;
+        }
+
+        // TABLA
+        function renderTable(showHints = false) {
+            const table = document.getElementById('score-table');
+            table.innerHTML = '';
+
+            // Header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th>Juegos</th>';
+            players.forEach((p, index) => {
+                const th = document.createElement('th');
+                th.innerText = p.name;
+                if(index === currentPlayerIndex) th.style.background = '#d946ef';
+                else th.style.background = '#f0abfc';
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Body
+            const tbody = document.createElement('tbody');
+            categories.forEach(cat => {
+                const tr = document.createElement('tr');
+                const tdLabel = document.createElement('td');
+                tdLabel.innerText = cat.label;
+                if(cat.id === 'Doble') tdLabel.className = 'row-gd';
+                tr.appendChild(tdLabel);
+
+                players.forEach((p, index) => {
+                    const td = document.createElement('td');
+                    if(index === currentPlayerIndex) td.className = 'col-active';
+
+                    const score = p.scores[cat.id];
+
+                    if (score !== null) {
+                        td.innerHTML = `<span class="score-cell-btn">${score}</span>`;
+                    } else if (index === currentPlayerIndex && showHints && rollsLeft < 3) {
+                        const points = calculatePoints(cat.id);
+                        const isServida = (rollsLeft === 2 && points > 0 && isNaN(cat.id) && cat.id !== 'Doble');
+                        
+                        const btn = document.createElement('button');
+                        btn.className = `score-cell-btn suggestion ${isServida ? 'servida-badge' : ''}`;
+                        btn.innerText = points;
+                        btn.onclick = () => confirmScore(cat.id, points);
+                        
+                        if (cat.id === 'Doble' && points === 0 && rollsLeft > 0) {
+                            btn.style.display = 'none'; 
+                        }
+                        td.appendChild(btn);
+                    } else {
+                        td.innerHTML = '-';
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+
+            // Total
+            const trTotal = document.createElement('tr');
+            trTotal.innerHTML = '<td><strong>TOTAL</strong></td>';
+            players.forEach((p, index) => {
+                const td = document.createElement('td');
+                if(index === currentPlayerIndex) td.className = 'col-active';
+                td.innerHTML = `<strong>${p.total}</strong>`;
+                trTotal.appendChild(td);
+            });
+            tbody.appendChild(trTotal);
+            table.appendChild(tbody);
+        }
+
+        function confirmScore(catId, points) {
+            const p = players[currentPlayerIndex];
+            p.scores[catId] = points;
+            p.total += points;
+
+            if ((catId === 'Generala' || catId === 'Doble') && points > 0) {
+                confetti({ particleCount: 200, spread: 120, colors: ['#d946ef', '#fce7f3', '#ffd700'] });
+            }
+
+            const allDone = players.every(pl => Object.values(pl.scores).every(s => s !== null));
+            if (allDone) {
+                renderTable(); 
+                setTimeout(showWinner, 500);
+            } else {
+                currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+                startTurn();
+            }
+        }
+
+        function showWinner() {
+            const sorted = [...players].sort((a,b) => b.total - a.total);
+            const winner = sorted[0];
+            alert(`¡La partida ha terminado! 🌸\n\nGanador/a: ${winner.name} con ${winner.total} pts`);
+        }
+
+        function confirmRestart() {
+            if(confirm("¿Reiniciar partida?")) location.reload();
+        }
+    </script>
+</body>
+</html>
